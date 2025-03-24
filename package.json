@@ -10,7 +10,8 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --dts --format cjs,esm --out-dir dist",
-    "dev": "tsup src/index.ts --watch"
+    "dev": "tsup src/index.ts --watch",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "cas",
