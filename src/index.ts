@@ -1,10 +1,11 @@
 import { ByteLengthParser, ReadlineParser, SerialPort } from "serialport";
+import type { PortInfo } from "@serialport/bindings-interface";
 
 export function initializeScale(
   path: string,
   onWeight: (weight: number) => void,
   onError?: (error: unknown) => void
-) {
+): { close: () => void } {
   const scale = new SerialPort({
     path,
     baudRate: 9600,
@@ -17,6 +18,7 @@ export function initializeScale(
   scale.pipe(new ByteLengthParser({ length: 7 }));
 
   let dataline: Buffer[] = [];
+  let interval: NodeJS.Timeout;
 
   scale.on("data", (data) => {
     const lastBuffer = dataline[dataline.length - 1];
@@ -28,7 +30,7 @@ export function initializeScale(
       const isError = second === Buffer.from("3f", "hex").toString();
 
       if (isError) {
-        onWeight(0); // 무게 읽기 실패는 0으로 처리
+        onWeight(0);
       } else {
         const weight = dataline
           .map((bf) => bf.toString())
@@ -36,7 +38,7 @@ export function initializeScale(
           .join("")
           .replaceAll(",", "");
 
-        onWeight(Number(weight) / 1000); // kg 단위
+        onWeight(Number(weight) / 1000);
       }
 
       dataline = [];
@@ -51,8 +53,31 @@ export function initializeScale(
     onError?.(err);
   });
 
-  // 주기적으로 무게 요청
-  setInterval(() => {
+  // 무게 요청 인터벌 시작
+  interval = setInterval(() => {
     scale.write("W", "ascii");
   }, 1000);
+
+  // 🔧 close 함수 추가
+  const close = () => {
+    clearInterval(interval);
+    if (scale.isOpen) {
+      scale.close((err) => {
+        if (err) {
+          console.error("Failed to close serial port:", err);
+        }
+      });
+    }
+  };
+
+  return { close };
+}
+
+export async function listSerialPorts(): Promise<PortInfo[]> {
+  const ports = await SerialPort.list();
+
+  // 필요하면 필터링 추가 가능:
+  // return ports.filter((port) => port.manufacturer?.toLowerCase().includes("ftdi"));
+
+  return ports;
 }
