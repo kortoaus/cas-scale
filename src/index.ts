@@ -2,10 +2,14 @@ import { ByteLengthParser, ReadlineParser, SerialPort } from "serialport";
 import type { PortInfo } from "@serialport/bindings-interface";
 
 export function initializeScale(
-  path: string,
+  options: {
+    path: string;
+    term?: number;
+  },
   onWeight: (weight: number) => void,
   onError?: (error: unknown) => void
 ): { close: () => void } {
+  const { path, term } = options;
   const scale = new SerialPort({
     path,
     baudRate: 9600,
@@ -56,7 +60,7 @@ export function initializeScale(
   // 무게 요청 인터벌 시작
   interval = setInterval(() => {
     scale.write("W", "ascii");
-  }, 1000);
+  }, term ?? 1000);
 
   // 🔧 close 함수 추가
   const close = () => {
